@@ -132,17 +132,6 @@ def get_driver():
     return webdriver.Chrome(service=service, options=options)
 
 
-# def get_uc_driver():
-#     options = undetected_chromedriver.ChromeOptions()
-#     if USE_PROXY:
-#         options = connect_proxy(options)
-#     options.headless = HEADLESS
-#     driver = undetected_chromedriver.Chrome(options=options,
-#                                             driver_executable_path=f'{BASE_DIR}/drivers/undetected_chromedriver')
-#
-#     return driver
-
-
 def main():
     logging.info('Start parsing.')
 
