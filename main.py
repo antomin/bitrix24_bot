@@ -1,10 +1,13 @@
 import logging
 import time
+import zipfile
 from datetime import datetime
 
 import requests
 import undetected_chromedriver
+from selenium import webdriver
 from selenium.webdriver import ActionChains
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
@@ -30,13 +33,28 @@ def write_to_file(offer_id):
         file.write(offer_id + '\n')
 
 
+def get_uc_driver():
+    options = undetected_chromedriver.ChromeOptions()
+    options.headless = HEADLESS
+    driver = undetected_chromedriver.Chrome(options=options,
+                                            driver_executable_path=f'{BASE_DIR}/drivers/undetected_chromedriver')
+
+    return driver
+
+
+def get_driver():
+    options = webdriver.ChromeOptions()
+    options.headless = HEADLESS
+    service = Service(f'{BASE_DIR}/drivers/chromedriver')
+    driver = webdriver.Chrome(service=service, options=options)
+
+    return driver
+
+
 def main():
     logging.info('Start parsing.')
 
-    options = undetected_chromedriver.ChromeOptions()
-    options.headless = HEADLESS
-    driver = undetected_chromedriver.Chrome(options=options, driver_executable_path=f'{BASE_DIR}/chromedriver')
-    # driver = undetected_chromedriver.Chrome(options=options)
+    driver = get_driver()
     wait = WebDriverWait(driver, 20)
     action = ActionChains(driver)
 
