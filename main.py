@@ -1,18 +1,18 @@
 import logging
 import time
-import zipfile
 from datetime import datetime
+from random import choice
 
 import requests
-import undetected_chromedriver
-from selenium import webdriver
 from selenium.webdriver import ActionChains
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
+from seleniumwire import webdriver
 
-from settings import BASE_DIR, CHAT_ID, HEADLESS, PASSWORD, TG_TOKEN, USERNAME
+from settings import (BASE_DIR, CHAT_ID, HEADLESS, PASSWORD, TG_TOKEN,
+                      USE_PROXY, USERNAME)
 
 URL = 'https://bpmc.bitrix24.pl'
 
@@ -20,7 +20,7 @@ with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
     old_offers = file.read().splitlines()
 
 
-logging.basicConfig(filename=f'{BASE_DIR}/log/{datetime.now().date()}.log', level=logging.INFO)
+logging.basicConfig(level=logging.INFO)
 
 
 def send_to_telegram(message):
@@ -33,22 +33,114 @@ def write_to_file(offer_id):
         file.write(offer_id + '\n')
 
 
-def get_uc_driver():
-    options = undetected_chromedriver.ChromeOptions()
-    options.headless = HEADLESS
-    driver = undetected_chromedriver.Chrome(options=options,
-                                            driver_executable_path=f'{BASE_DIR}/drivers/undetected_chromedriver')
+def get_rand_proxy():
+    with open('proxy.txt', 'r') as f:
+        proxy_list = f.read().splitlines()
 
-    return driver
+    proxy = choice(proxy_list).split(':')
+
+    return {'user': proxy[0], 'pass': proxy[1], 'host': proxy[2], 'port': int(proxy[3])}
+
+
+# def connect_proxy(options):
+#     proxy = get_rand_proxy()
+#
+#     manifest_json = """
+#     {
+#         "version": "1.0.0",
+#         "manifest_version": 2,
+#         "name": "Chrome Proxy",
+#         "permissions": [
+#             "proxy",
+#             "tabs",
+#             "unlimitedStorage",
+#             "storage",
+#             "<all_urls>",
+#             "webRequest",
+#             "webRequestBlocking"
+#         ],
+#         "background": {
+#             "scripts": ["background.js"]
+#         },
+#         "minimum_chrome_version":"22.0.0"
+#     }
+#     """
+#
+#     background_js = """
+#     var config = {
+#             mode: "fixed_servers",
+#             rules: {
+#             singleProxy: {
+#                 scheme: "http",
+#                 host: "%s",
+#                 port: parseInt(%s)
+#             },
+#             bypassList: ["localhost"]
+#             }
+#         };
+#
+#     chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
+#
+#     function callbackFn(details) {
+#         return {
+#             authCredentials: {
+#                 username: "%s",
+#                 password: "%s"
+#             }
+#         };
+#     }
+#
+#     chrome.webRequest.onAuthRequired.addListener(
+#                 callbackFn,
+#                 {urls: ["<all_urls>"]},
+#                 ['blocking']
+#     );
+#     """ % (proxy['host'], proxy['port'], proxy['user'], proxy['pass'])
+#
+#     plugin = 'proxy_auth_plugin.zip'
+#
+#     with zipfile.ZipFile(plugin, 'w') as zp:
+#         zp.writestr("manifest.json", manifest_json)
+#         zp.writestr("background.js", background_js)
+#
+#     options.add_extension(plugin)
+#
+#     logging.info(f'Connected to {proxy["host"]}:{proxy["port"]}')
+#
+#     return options
 
 
 def get_driver():
     options = webdriver.ChromeOptions()
-    options.headless = HEADLESS
     service = Service(f'{BASE_DIR}/drivers/chromedriver')
-    driver = webdriver.Chrome(service=service, options=options)
 
-    return driver
+    if HEADLESS:
+        options.add_argument('--headless=chrome')
+
+    if USE_PROXY:
+        proxy = get_rand_proxy()
+        wire_options = {
+            'proxy': {
+                'http': f'http://{proxy["user"]}:{proxy["pass"]}@{proxy["host"]}:{proxy["port"]}',
+                'https': f'https://{proxy["user"]}:{proxy["pass"]}@{proxy["host"]}:{proxy["port"]}',
+                'no_proxy': 'localhost,127.0.0.1'
+            }
+        }
+
+        return webdriver.Chrome(service=service, options=options, seleniumwire_options=wire_options)
+
+    return webdriver.Chrome(service=service, options=options)
+
+
+# def get_uc_driver():
+#     options = undetected_chromedriver.ChromeOptions()
+#     if USE_PROXY:
+#         options = connect_proxy(options)
+#     options.headless = HEADLESS
+#     driver = undetected_chromedriver.Chrome(options=options,
+#                                             driver_executable_path=f'{BASE_DIR}/drivers/undetected_chromedriver')
+#
+#     return driver
 
 
 def main():
