@@ -11,7 +11,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from seleniumwire import webdriver
 
-from settings import (BASE_DIR, CHAT_ID, HEADLESS, PASSWORD, TG_TOKEN,
+from settings import (BASE_DIR, CHAT_ID, HEADLESS, PASSWORD, TG_TOKEN, TIMEOUT,
                       USE_PROXY, USERNAME)
 
 URL = 'https://bpmc.bitrix24.pl'
@@ -19,8 +19,11 @@ URL = 'https://bpmc.bitrix24.pl'
 with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
     old_offers = file.read().splitlines()
 
-
-logging.basicConfig(level=logging.INFO)
+# logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)-30s %(levelname)-15s %(message)s',
+                    filename=f'{BASE_DIR}/log/{datetime.now().strftime("%d-%m-%Y")}.log')
+loger_selenium = logging.getLogger('seleniumwire')
+loger_selenium.setLevel(logging.ERROR)
 
 
 def send_to_telegram(message):
@@ -34,7 +37,7 @@ def write_to_file(offer_id):
 
 
 def get_rand_proxy():
-    with open('proxy.txt', 'r') as f:
+    with open(f'{BASE_DIR}/proxy.txt', 'r') as f:
         proxy_list = f.read().splitlines()
 
     proxy = choice(proxy_list).split(':')
@@ -42,77 +45,9 @@ def get_rand_proxy():
     return {'user': proxy[0], 'pass': proxy[1], 'host': proxy[2], 'port': int(proxy[3])}
 
 
-# def connect_proxy(options):
-#     proxy = get_rand_proxy()
-#
-#     manifest_json = """
-#     {
-#         "version": "1.0.0",
-#         "manifest_version": 2,
-#         "name": "Chrome Proxy",
-#         "permissions": [
-#             "proxy",
-#             "tabs",
-#             "unlimitedStorage",
-#             "storage",
-#             "<all_urls>",
-#             "webRequest",
-#             "webRequestBlocking"
-#         ],
-#         "background": {
-#             "scripts": ["background.js"]
-#         },
-#         "minimum_chrome_version":"22.0.0"
-#     }
-#     """
-#
-#     background_js = """
-#     var config = {
-#             mode: "fixed_servers",
-#             rules: {
-#             singleProxy: {
-#                 scheme: "http",
-#                 host: "%s",
-#                 port: parseInt(%s)
-#             },
-#             bypassList: ["localhost"]
-#             }
-#         };
-#
-#     chrome.proxy.settings.set({value: config, scope: "regular"}, function() {});
-#
-#     function callbackFn(details) {
-#         return {
-#             authCredentials: {
-#                 username: "%s",
-#                 password: "%s"
-#             }
-#         };
-#     }
-#
-#     chrome.webRequest.onAuthRequired.addListener(
-#                 callbackFn,
-#                 {urls: ["<all_urls>"]},
-#                 ['blocking']
-#     );
-#     """ % (proxy['host'], proxy['port'], proxy['user'], proxy['pass'])
-#
-#     plugin = 'proxy_auth_plugin.zip'
-#
-#     with zipfile.ZipFile(plugin, 'w') as zp:
-#         zp.writestr("manifest.json", manifest_json)
-#         zp.writestr("background.js", background_js)
-#
-#     options.add_extension(plugin)
-#
-#     logging.info(f'Connected to {proxy["host"]}:{proxy["port"]}')
-#
-#     return options
-
-
 def get_driver():
     options = webdriver.ChromeOptions()
-    service = Service(f'{BASE_DIR}/drivers/chromedriver')
+    service = Service(executable_path=f'{BASE_DIR}/drivers/chromedriver')
 
     if HEADLESS:
         options.add_argument('--headless=chrome')
@@ -126,9 +61,9 @@ def get_driver():
                 'no_proxy': 'localhost,127.0.0.1'
             }
         }
-
+        logging.info(f'Driver start with proxy {proxy["host"]}:{proxy["port"]}')
         return webdriver.Chrome(service=service, options=options, seleniumwire_options=wire_options)
-
+    logging.info('Driver start without proxy')
     return webdriver.Chrome(service=service, options=options)
 
 
@@ -148,6 +83,8 @@ def main():
             except Exception:
                 pass
 
+        logging.info('Start authorization.')
+
         next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
         wait.until(EC.presence_of_element_located((By.ID, 'login'))).send_keys(USERNAME)
         action.move_to_element(next_button).click(next_button).perform()
@@ -159,6 +96,7 @@ def main():
         action.move_to_element(next_button).click(next_button).perform()
 
         logging.info('Authorization is done.')
+        logging.info('Waiting slots info.')
 
         frame_wrapper = wait.until(EC.presence_of_element_located((By.XPATH, '//iframe[@class="app-frame"]')))
         driver.switch_to.frame(frame_wrapper)
@@ -174,24 +112,28 @@ def main():
             )
         )
 
+        logging.info('Check slots.')
+
         for elem in elems:
             offer_id = elem.get_attribute('data-id')
             tds = elem.find_elements(By.XPATH, 'td[@class="main-grid-cell main-grid-cell-left"]')
+            # print(tds[3].text)
             if tds[3].text != 'No vacant slots' and offer_id not in old_offers:
                 send_to_telegram(f'FREE_SLOT ID {offer_id}.')
                 logging.info('Found slots.')
                 write_to_file(offer_id)
 
-        logging.info('Finish parsing without errors.')
+        logging.info('No free slots.')
 
     except Exception as error:
         driver.get_screenshot_as_file(f'{BASE_DIR}/screen.png')
-        logging.info(f'ERROR with parsing: {error}')
-        send_to_telegram(f'ERROR: {error}')
+        logging.error(f'ERROR with parsing: {error}')
+        # send_to_telegram(f'ERROR: {error}')
 
     finally:
         driver.close()
         driver.quit()
+        logging.info('Finish parsing without errors.')
 
 
 if __name__ == '__main__':
