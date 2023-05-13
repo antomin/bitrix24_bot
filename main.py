@@ -11,10 +11,9 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from seleniumwire import webdriver
 
-from settings import (BASE_DIR, CHAT_ID, HEADLESS, PASSWORD, TG_TOKEN, TIMEOUT,
-                      USE_PROXY, USERNAME)
+from settings import (BASE_DIR, CHAT_ID, HEADLESS, TG_TOKEN, USE_PROXY)
 
-URL = 'https://bpmc.bitrix24.pl'
+URL = 'https://bpmc.bitrix24.pl/marketplace/app/1/'
 
 with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
     old_offers = file.read().splitlines()
@@ -45,6 +44,15 @@ def get_rand_proxy():
     return {'user': proxy[0], 'pass': proxy[1], 'host': proxy[2], 'port': int(proxy[3])}
 
 
+def get_rand_account():
+    with open(f'{BASE_DIR}/accounts.txt', 'r') as f:
+        accounts_list = f.read().splitlines()
+
+    account = choice(accounts_list).split(':')
+
+    return {'username': account[0], 'password': account[1]}
+
+
 def get_driver():
     options = webdriver.ChromeOptions()
     service = Service(executable_path=f'{BASE_DIR}/drivers/chromedriver')
@@ -73,6 +81,9 @@ def main():
     driver = get_driver()
     wait = WebDriverWait(driver, 20)
     action = ActionChains(driver)
+    account = get_rand_account()
+
+    logging.info(f'Use account {account["username"]}')
 
     try:
         driver.get(URL)
@@ -86,13 +97,13 @@ def main():
         logging.info('Start authorization.')
 
         next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
-        wait.until(EC.presence_of_element_located((By.ID, 'login'))).send_keys(USERNAME)
+        wait.until(EC.presence_of_element_located((By.ID, 'login'))).send_keys(account['username'])
         action.move_to_element(next_button).click(next_button).perform()
 
         time.sleep(1)
 
         next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
-        wait.until(EC.presence_of_element_located((By.ID, 'password'))).send_keys(PASSWORD)
+        wait.until(EC.presence_of_element_located((By.ID, 'password'))).send_keys(account['password'])
         action.move_to_element(next_button).click(next_button).perform()
 
         logging.info('Authorization is done.')
@@ -117,7 +128,6 @@ def main():
         for elem in elems:
             offer_id = elem.get_attribute('data-id')
             tds = elem.find_elements(By.XPATH, 'td[@class="main-grid-cell main-grid-cell-left"]')
-            # print(tds[3].text)
             if tds[3].text != 'No vacant slots' and offer_id not in old_offers:
                 send_to_telegram(f'FREE_SLOT ID {offer_id}.')
                 logging.info('Found slots.')
@@ -128,7 +138,6 @@ def main():
     except Exception as error:
         driver.get_screenshot_as_file(f'{BASE_DIR}/screen.png')
         logging.error(f'ERROR with parsing: {error}')
-        # send_to_telegram(f'ERROR: {error}')
 
     finally:
         driver.close()
