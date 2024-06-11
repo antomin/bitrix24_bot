@@ -13,7 +13,7 @@ from seleniumwire import webdriver
 
 from settings import (BASE_DIR, CHAT_ID, HEADLESS, TG_TOKEN, USE_PROXY)
 
-URL = 'https://bpmc.bitrix24.pl/marketplace/app/1/'
+URL = 'https://bpmc.bitrix24.pl/marketplace/app/129/'
 
 with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
     old_offers = file.read().splitlines()
@@ -26,7 +26,7 @@ loger_selenium.setLevel(logging.ERROR)
 
 
 def send_to_telegram(message):
-    url = '\nhttps://bpmc.bitrix24.pl/marketplace/app/1/'
+    url = f'\n{URL}'
     requests.get(f'https://api.telegram.org/bot{TG_TOKEN}/sendMessage?chat_id={CHAT_ID}&text={message + url}')
 
 
@@ -79,7 +79,7 @@ def main():
     logging.info('Start parsing.')
 
     driver = get_driver()
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 160)
     action = ActionChains(driver)
     account = get_rand_account()
 
