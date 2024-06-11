@@ -5,11 +5,11 @@ from random import choice
 
 import requests
 from selenium.webdriver import ActionChains
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from seleniumwire import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
 
 from settings import (BASE_DIR, CHAT_ID, HEADLESS, TG_TOKEN, USE_PROXY)
 
@@ -55,7 +55,7 @@ def get_rand_account():
 
 def get_driver():
     options = webdriver.ChromeOptions()
-    service = Service(executable_path=f'{BASE_DIR}/drivers/chromedriver')
+    # service = Service(executable_path=f'{BASE_DIR}/drivers/chromedriver')
 
     if HEADLESS:
         options.add_argument('--headless=chrome')
@@ -65,14 +65,16 @@ def get_driver():
         wire_options = {
             'proxy': {
                 'http': f'http://{proxy["user"]}:{proxy["pass"]}@{proxy["host"]}:{proxy["port"]}',
-                'https': f'https://{proxy["user"]}:{proxy["pass"]}@{proxy["host"]}:{proxy["port"]}',
-                'no_proxy': 'localhost,127.0.0.1'
+                'verify_ssl': False,
             }
         }
         logging.info(f'Driver start with proxy {proxy["host"]}:{proxy["port"]}')
-        return webdriver.Chrome(service=service, options=options, seleniumwire_options=wire_options)
+        driver = webdriver.Chrome(ChromeDriverManager().install(), options=options,
+                                  seleniumwire_options=wire_options)
+        return driver
+
     logging.info('Driver start without proxy')
-    return webdriver.Chrome(service=service, options=options)
+    return webdriver.Chrome(ChromeDriverManager().install(), options=options)
 
 
 def main():
