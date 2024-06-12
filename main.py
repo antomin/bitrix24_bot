@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import time
 from datetime import datetime
@@ -9,10 +10,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from seleniumwire import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
 
 from settings import (BASE_DIR, CHAT_ID, HEADLESS, TG_TOKEN, USE_PROXY)
 
+# URL = 'https://2ip.ru'
 URL = 'https://bpmc.bitrix24.pl/marketplace/app/129/'
 
 with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
@@ -39,9 +40,7 @@ def get_rand_proxy():
     with open(f'{BASE_DIR}/proxy.txt', 'r') as f:
         proxy_list = f.read().splitlines()
 
-    proxy = choice(proxy_list).split(':')
-
-    return {'user': proxy[0], 'pass': proxy[1], 'host': proxy[2], 'port': int(proxy[3])}
+    return choice(proxy_list)
 
 
 def get_rand_account():
@@ -55,7 +54,7 @@ def get_rand_account():
 
 def get_driver():
     options = webdriver.ChromeOptions()
-    # service = Service(executable_path=f'{BASE_DIR}/drivers/chromedriver')
+    options.add_experimental_option("prefs", {"profile.managed_default_content_settings.images": 2})
 
     if HEADLESS:
         options.add_argument('--headless=chrome')
@@ -64,25 +63,25 @@ def get_driver():
         proxy = get_rand_proxy()
         wire_options = {
             'proxy': {
-                'http': f'http://{proxy["user"]}:{proxy["pass"]}@{proxy["host"]}:{proxy["port"]}',
-                'verify_ssl': False,
+                'http': f'http://{proxy}',
+                'https': f'https://{proxy}',
+                'no_proxy': 'localhost,127.0.0.1'
             }
         }
-        logging.info(f'Driver start with proxy {proxy["host"]}:{proxy["port"]}')
-        driver = webdriver.Chrome(ChromeDriverManager().install(), options=options,
-                                  seleniumwire_options=wire_options)
+
+        logging.info(f'Driver start with proxy {proxy}')
+        driver = webdriver.Chrome(options=options, seleniumwire_options=wire_options)
         return driver
 
     logging.info('Driver start without proxy')
-    return webdriver.Chrome(ChromeDriverManager().install(), options=options)
+    return webdriver.Chrome(options=options)
 
 
 def main():
     logging.info('Start parsing.')
 
     driver = get_driver()
-    wait = WebDriverWait(driver, 160)
-    action = ActionChains(driver)
+    wait = WebDriverWait(driver, 60)
     account = get_rand_account()
 
     logging.info(f'Use account {account["username"]}')
@@ -100,13 +99,15 @@ def main():
 
         next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
         wait.until(EC.presence_of_element_located((By.ID, 'login'))).send_keys(account['username'])
-        action.move_to_element(next_button).click(next_button).perform()
-
+        # action.move_to_element(next_button).click(next_button).perform()
+        time.sleep(1)
+        next_button.click()
         time.sleep(1)
 
         next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
         wait.until(EC.presence_of_element_located((By.ID, 'password'))).send_keys(account['password'])
-        action.move_to_element(next_button).click(next_button).perform()
+        time.sleep(1)
+        next_button.click()
 
         logging.info('Authorization is done.')
         logging.info('Waiting slots info.')
@@ -116,8 +117,8 @@ def main():
         frame_inner = wait.until(EC.presence_of_element_located((By.XPATH, '//iframe[@name="partner_application"]')))
         driver.switch_to.frame(frame_inner)
 
-        wait.until(EC.presence_of_element_located(
-            (By.XPATH, '//div[@class="partner-application-b24-statistic-table-head-btn-inner"]'))).click()
+        # wait.until(EC.presence_of_element_located(
+        #     (By.XPATH, '//div[@class="partner-application-b24-statistic-table-head-btn-inner"]'))).click()
 
         elems = wait.until(
             EC.presence_of_all_elements_located(
