@@ -133,3 +133,4 @@ dmypy.json
 test.py
 .DS_Store
 screen.png
+old_offers.txt
