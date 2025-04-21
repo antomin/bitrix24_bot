@@ -1,6 +1,6 @@
 import os
 
-HEADLESS = False
+HEADLESS = True
 USE_PROXY = True
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
