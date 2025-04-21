@@ -1,11 +1,9 @@
-import contextlib
 import logging
 import time
 from datetime import datetime
 from random import choice
 
 import requests
-from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
@@ -13,7 +11,6 @@ from seleniumwire import webdriver
 
 from settings import (BASE_DIR, CHAT_ID, HEADLESS, TG_TOKEN, USE_PROXY)
 
-# URL = 'https://2ip.ru'
 URL = 'https://bpmc.bitrix24.pl/marketplace/app/129/'
 
 with open(f'{BASE_DIR}/old_offers.txt', 'r', encoding='utf-8') as file:
@@ -97,15 +94,22 @@ def main():
 
         logging.info('Start authorization.')
 
-        next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
+        next_button = wait.until(EC.presence_of_element_located(
+            (By.XPATH, '//button[contains(@class, "b24net-login-enter-form__continue-btn")]')
+        ))
         wait.until(EC.presence_of_element_located((By.ID, 'login'))).send_keys(account['username'])
-        # action.move_to_element(next_button).click(next_button).perform()
         time.sleep(1)
         next_button.click()
         time.sleep(1)
 
-        next_button = wait.until(EC.presence_of_element_located((By.XPATH, '//button[@data-action="submit"]')))
-        wait.until(EC.presence_of_element_located((By.ID, 'password'))).send_keys(account['password'])
+        next_button = wait.until(EC.presence_of_element_located(
+            (By.XPATH, '//button[contains(@class, "b24net-password-enter-form__continue-btn")]')
+        ))
+
+        wait.until(EC.presence_of_element_located(
+            (By.XPATH, '//input[@type="password"]')
+        )).send_keys(account['password'])
+
         time.sleep(1)
         next_button.click()
 
@@ -116,9 +120,6 @@ def main():
         driver.switch_to.frame(frame_wrapper)
         frame_inner = wait.until(EC.presence_of_element_located((By.XPATH, '//iframe[@name="partner_application"]')))
         driver.switch_to.frame(frame_inner)
-
-        # wait.until(EC.presence_of_element_located(
-        #     (By.XPATH, '//div[@class="partner-application-b24-statistic-table-head-btn-inner"]'))).click()
 
         elems = wait.until(
             EC.presence_of_all_elements_located(
